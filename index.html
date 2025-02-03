@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Bluetooth Example</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { margin: 5px; padding: 10px; }
+        #devices { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <button id="connectBtn">Connect</button>
+    <ul id="devices"></ul>
+
+    <script>
+        const devices = new Map();
+
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{
+                        services: ['0000180d-0000-1000-8000-00805f9b34fb']
+                    }],
+                    optionalServices: ['battery_service']
+                });
+
+                if (!devices.has(device.id)) {
+                    devices.set(device.id, { device, manualDisconnect: false });
+                    addDeviceToList(device);
+                    setupReconnection(device);
+                }
+            } catch (error) {
+                //console.error('Bluetooth error:', error);
+            }
+        });
+
+        function addDeviceToList(device) {
+            const deviceList = document.getElementById('devices');
+            const listItem = document.createElement('li');
+            listItem.textContent = device.name || 'Unknown Device';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.onclick = async () => {
+                devices.get(device.id).manualDisconnect = true;
+                await device.gatt.disconnect();
+                devices.delete(device.id);
+                listItem.remove();
+                console.log(`${device.name} removed.`);
+            };
+
+            listItem.appendChild(removeBtn);
+            deviceList.appendChild(listItem);
+        }
+
+        function setupReconnection(device) {
+            device.addEventListener('gattserverdisconnected', async (event) => {
+                const deviceInfo = devices.get(device.id);
+
+                if (deviceInfo && !deviceInfo.manualDisconnect) {
+                    let now = performance.now() / 1000;
+                    console.warn(now, `${device.name} disconnected unexpectedly. Reconnecting...`);
+
+                    const message = document.createElement('p');
+                    message.textContent = 'Dropout, reconnecting...';
+                    message.style.color = 'red';
+                    document.body.appendChild(message);
+
+                    try {
+                        await device.gatt.connect();
+                        document.body.removeChild(message);
+                        console.log(`${device.name} reconnected.`);
+                    } catch (error) {
+                        console.error('Reconnection failed:', error);
+                    }
+                } else {
+                    console.log(`${device.name} manually disconnected.`);
+                }
+            });
+
+            device.gatt.connect().then(() => console.log(`${device.name} connected.`));
+        }
+    </script>
+</body>
+</html>
