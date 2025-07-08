@@ -42,7 +42,13 @@ document.getElementById('selectDevice').addEventListener('click', async () => {
 
   try {
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: ['00001826-0000-1000-8000-00805f9b34fb'] }]
+      filters: [
+        { services: ['00001826-0000-1000-8000-00805f9b34fb'] } // FTMS
+      ],
+      optionalServices: [
+        '00001826-0000-1000-8000-00805f9b34fb', // FTMS
+        'b4cc1224-bc02-4cae-adb9-1217ad2860d1'  // Wattbike gear (custom)
+      ]
     });
 
     const server = await device.gatt.connect();
@@ -58,12 +64,12 @@ document.getElementById('selectDevice').addEventListener('click', async () => {
         const charDiv = document.createElement('div');
         charDiv.className = 'characteristic';
 
-        // Service UUID (first line)
+        // Service UUID
         const serviceLine = document.createElement('div');
         serviceLine.innerHTML = `<strong>Service:</strong> ${serviceUUID}`;
         charDiv.appendChild(serviceLine);
 
-        // Characteristic UUID (next line)
+        // Characteristic UUID
         const charLine = document.createElement('div');
         charLine.innerHTML = `<strong>Characteristic:</strong> ${char.uuid}`;
         charDiv.appendChild(charLine);
@@ -80,7 +86,7 @@ document.getElementById('selectDevice').addEventListener('click', async () => {
         }
         charDiv.appendChild(propList);
 
-        // Read value if available
+        // Readable? Show value
         if (char.properties.read) {
           const valueDiv = document.createElement('div');
           valueDiv.textContent = "Value: (reading...)";
@@ -92,7 +98,7 @@ document.getElementById('selectDevice').addEventListener('click', async () => {
           charDiv.appendChild(valueDiv);
         }
 
-        // Start/Stop listening toggle
+        // Notifiable? Add Start/Stop button
         if (char.properties.notify || char.properties.indicate) {
           const listenBtn = document.createElement('button');
           listenBtn.textContent = "Start listening";
