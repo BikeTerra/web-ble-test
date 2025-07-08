@@ -24,6 +24,11 @@
   <pre id="notifications">No notifications yet.</pre>
 
 <script>
+
+let ftmsService = '00001826-0000-1000-8000-00805f9b34fb';
+let wattbikeService = 'b4cc1223-bc02-4cae-adb9-1217ad2860d1';
+let wattbikeCharacteristic = 'b4cc1224-bc02-4cae-adb9-1217ad2860d1';
+
 function bufferToHex(buffer) {
     const bytes = new Uint8Array(buffer);
     return Array.from(bytes)
@@ -43,11 +48,11 @@ document.getElementById('selectDevice').addEventListener('click', async () => {
   try {
     const device = await navigator.bluetooth.requestDevice({
       filters: [
-        { services: ['00001826-0000-1000-8000-00805f9b34fb'] } // FTMS
+        { services: [ftmsService] } // FTMS
       ],
       optionalServices: [
-        '00001826-0000-1000-8000-00805f9b34fb', // FTMS
-        'b4cc1224-bc02-4cae-adb9-1217ad2860d1'  // Wattbike gear (custom)
+        ftmsService,
+        wattbikeService
       ]
     });
 
