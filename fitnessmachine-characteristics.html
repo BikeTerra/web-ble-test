@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FTMS Device Explorer</title>
+    <style>
+        body { font-family: sans-serif; padding: 1em; }
+        button { font-size: 1em; padding: 0.5em 1em; }
+        pre { background: #f0f0f0; padding: 1em; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<h1>FTMS Device Explorer</h1>
+<button id="selectDevice">Select Device</button>
+
+<h2>Characteristic Details</h2>
+<pre id="output">Click the button to begin...</pre>
+
+<script>
+document.getElementById('selectDevice').addEventListener('click', async () => {
+    const output = document.getElementById('output');
+    output.textContent = "Connecting...";
+
+    try {
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{
+                services: ['00001826-0000-1000-8000-00805f9b34fb'] // FTMS
+            }]
+        });
+
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('00001826-0000-1000-8000-00805f9b34fb');
+        const characteristics = await service.getCharacteristics();
+
+        let result = `Connected to: ${device.name || 'Unnamed Device'}\n\n`;
+
+        for (const char of characteristics) {
+            result += `Characteristic UUID: ${char.uuid}\n`;
+            result += `  Properties:\n`;
+            for (const prop in char.properties) {
+                if (char.properties[prop]) {
+                    result += `    - ${prop}\n`;
+                }
+            }
+            result += `\n`;
+        }
+
+        output.textContent = result;
+    } catch (error) {
+        output.textContent = "Error: " + error.message;
+    }
+});
+</script>
+
+</body>
+</html>
