@@ -1,56 +1,143 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>FTMS Device Explorer</title>
-    <style>
-        body { font-family: sans-serif; padding: 1em; }
-        button { font-size: 1em; padding: 0.5em 1em; }
-        pre { background: #f0f0f0; padding: 1em; white-space: pre-wrap; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Bluetooth GATT Explorer</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    button { font-size: 0.9em; padding: 0.3em 0.8em; margin: 0.2em; }
+    pre { background: #f0f0f0; padding: 1em; white-space: pre-wrap; }
+    .characteristic { border: 1px solid #ccc; margin: 0.5em 0; padding: 0.5em; }
+    .prop-list { margin-left: 1em; }
+    h2 { display: inline-block; margin-right: 1em; }
+  </style>
 </head>
 <body>
+  <h1>Bluetooth GATT Explorer</h1>
+  <button id="selectDevice">Select Device</button>
 
-<h1>FTMS Device Explorer</h1>
-<button id="selectDevice">Select Device</button>
+  <h2>Characteristics</h2>
+  <div id="characteristics">Click the button to begin...</div>
 
-<h2>Characteristic Details</h2>
-<pre id="output">Click the button to begin...</pre>
+  <h2>Notifications</h2>
+  <button id="clearNotifications">Clear</button>
+  <pre id="notifications">No notifications yet.</pre>
 
 <script>
+function bufferToHex(buffer) {
+    const bytes = new Uint8Array(buffer);
+    return Array.from(bytes)
+          .map(b => ('0' + b.toString(16)).slice(-2))
+          .join(' ');
+}
+
+document.getElementById('clearNotifications').addEventListener('click', () => {
+  document.getElementById('notifications').textContent = 'No notifications yet.';
+});
+
 document.getElementById('selectDevice').addEventListener('click', async () => {
-    const output = document.getElementById('output');
-    output.textContent = "Connecting...";
+  const charContainer = document.getElementById('characteristics');
+  charContainer.innerHTML = 'Connecting...';
+  document.getElementById('notifications').textContent = 'No notifications yet.';
 
-    try {
-        const device = await navigator.bluetooth.requestDevice({
-            filters: [{
-                services: ['00001826-0000-1000-8000-00805f9b34fb'] // FTMS
-            }]
-        });
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: ['00001826-0000-1000-8000-00805f9b34fb'] }]
+    });
 
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService('00001826-0000-1000-8000-00805f9b34fb');
-        const characteristics = await service.getCharacteristics();
+    const server = await device.gatt.connect();
+    const services = await server.getPrimaryServices();
 
-        let result = `Connected to: ${device.name || 'Unnamed Device'}\n\n`;
+    charContainer.innerHTML = '';
 
-        for (const char of characteristics) {
-            result += `Characteristic UUID: ${char.uuid}\n`;
-            result += `  Properties:\n`;
-            for (const prop in char.properties) {
-                if (char.properties[prop]) {
-                    result += `    - ${prop}\n`;
-                }
-            }
-            result += `\n`;
+    for (const service of services) {
+      const serviceUUID = service.uuid;
+      const characteristics = await service.getCharacteristics();
+
+      for (const char of characteristics) {
+        const charDiv = document.createElement('div');
+        charDiv.className = 'characteristic';
+
+        // Service UUID (first line)
+        const serviceLine = document.createElement('div');
+        serviceLine.innerHTML = `<strong>Service:</strong> ${serviceUUID}`;
+        charDiv.appendChild(serviceLine);
+
+        // Characteristic UUID (next line)
+        const charLine = document.createElement('div');
+        charLine.innerHTML = `<strong>Characteristic:</strong> ${char.uuid}`;
+        charDiv.appendChild(charLine);
+
+        // Properties
+        const propList = document.createElement('ul');
+        propList.className = 'prop-list';
+        for (let prop in char.properties) {
+          if (char.properties[prop]) {
+            const li = document.createElement('li');
+            li.textContent = prop;
+            propList.appendChild(li);
+          }
+        }
+        charDiv.appendChild(propList);
+
+        // Read value if available
+        if (char.properties.read) {
+          const valueDiv = document.createElement('div');
+          valueDiv.textContent = "Value: (reading...)";
+          char.readValue().then(value => {
+            valueDiv.textContent = "Value: " + bufferToHex(value.buffer);
+          }).catch(err => {
+            valueDiv.textContent = "Value: Error reading (" + err.message + ")";
+          });
+          charDiv.appendChild(valueDiv);
         }
 
-        output.textContent = result;
-    } catch (error) {
-        output.textContent = "Error: " + error.message;
+        // Start/Stop listening toggle
+        if (char.properties.notify || char.properties.indicate) {
+          const listenBtn = document.createElement('button');
+          listenBtn.textContent = "Start listening";
+          let isListening = false;
+
+          const onNotification = (event) => {
+            const value = bufferToHex(event.target.value.buffer);
+            const notificationsPre = document.getElementById('notifications');
+            const logEntry = `Notification from ${char.uuid}:\n  Value: ${value}\n`;
+            notificationsPre.textContent = logEntry + "\n" + notificationsPre.textContent;
+          };
+
+          listenBtn.addEventListener('click', async () => {
+            if (!isListening) {
+              try {
+                await char.startNotifications();
+                char.addEventListener('characteristicvaluechanged', onNotification);
+                listenBtn.textContent = "Stop listening";
+                isListening = true;
+              } catch (err) {
+                alert("Error starting notifications: " + err.message);
+              }
+            } else {
+              try {
+                await char.stopNotifications();
+                char.removeEventListener('characteristicvaluechanged', onNotification);
+                listenBtn.textContent = "Start listening";
+                isListening = false;
+              } catch (err) {
+                alert("Error stopping notifications: " + err.message);
+              }
+            }
+          });
+
+          charDiv.appendChild(listenBtn);
+        }
+
+        charContainer.appendChild(charDiv);
+      }
     }
+  } catch (error) {
+    alert("Error: " + error.message);
+    charContainer.innerHTML = '';
+  }
 });
 </script>
-
 </body>
 </html>
