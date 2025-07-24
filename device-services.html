@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bluetooth Services Explorer</title>
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    button { font-size: 0.9em; padding: 0.3em 0.8em; margin: 0.2em; }
+    ul { padding-left: 1em; }
+  </style>
+</head>
+<body>
+  <h1>Bluetooth Services Explorer</h1>
+  <button id="selectDevice">Select Device</button>
+
+  <h2>Services</h2>
+  <ul id="services">Click the button to begin...</ul>
+
+<script>
+document.getElementById('selectDevice').addEventListener('click', async () => {
+  const serviceList = document.getElementById('services');
+  serviceList.innerHTML = '<li>Connecting...</li>';
+
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [] // Optional: can be populated later
+    });
+
+    const server = await device.gatt.connect();
+    const services = await server.getPrimaryServices();
+
+    serviceList.innerHTML = '';
+
+    for (const service of services) {
+      const li = document.createElement('li');
+      li.textContent = service.uuid;
+      serviceList.appendChild(li);
+    }
+
+    if (services.length === 0) {
+      serviceList.innerHTML = '<li>No services found.</li>';
+    }
+  } catch (error) {
+    alert("Error: " + error.message);
+    serviceList.innerHTML = '';
+  }
+});
+</script>
+</body>
+</html>
