@@ -24,7 +24,7 @@ document.getElementById('selectDevice').addEventListener('click', async () => {
   try {
     const device = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
-      optionalServices: [] // Optional: can be populated later
+      optionalServices: ['0000fc82-0000-1000-8000-00805f9b34fb'] // Optional: can be populated later
     });
 
     const server = await device.gatt.connect();
